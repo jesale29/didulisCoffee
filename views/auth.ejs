@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+
+<h2>Welcome to OrderSystem</h2>
+
+<div style="display: flex; gap: 50px;">
+    <section>
+        <h3>Create Account</h3>
+        <form action="/signup" method="POST">
+            <label>Full Name</label>
+            <input type="text" name="full_name" required>
+            
+            <label>Email</label>
+            <input type="email" name="email" required>
+            
+            <label>Password</label>
+            <input type="password" name="password" required>
+            
+            <button type="submit">Register</button>
+        </form>
+    </section>
+
+    <section>
+        <h3>Login</h3>
+        <form action="/signin" method="POST">
+            <label>Email</label>
+            <input type="email" name="email" required>
+            
+            <label>Password</label>
+            <input type="password" name="password" required>
+            
+            <button type="submit">Sign In</button>
+        </form>
+    </section>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,34 +1,26 @@
-const supabase = require('../config/supabase');
-const bcrypt = require('bcryptjs');
+const pool = require('../config/db'); // Ensure this points to your postgres pool
 
 const User = {
-    /**
-     * Find a user by email
-     */
-    async findByEmail(email) {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
-
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
-        return data;
+    // Find user for the Login Strategy
+    findByEmail: async (email) => {
+        try {
+            const res = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+            return res.rows[0];
+        } catch (err) {
+            console.error("Database Error in findByEmail:", err);
+            throw err;
+        }
     },
 
-    /**
-     * Create a new user with a hashed password
-     */
-    async create({ name, email, password }) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const { data, error } = await supabase
-            .from('users')
-            .insert([{ name, email, password: hashedPassword }])
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data;
+    // Find user for the Session (Deserialization)
+    findById: async (id) => {
+        try {
+            const res = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+            return res.rows[0];
+        } catch (err) {
+            console.error("Database Error in findById:", err);
+            throw err;
+        }
     }
 };
 

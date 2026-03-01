@@ -1,85 +1,83 @@
-const supabase = require('../config/supabase');
+const Model = require('./Model');
+const pool = require('../config/db');
 
-const products = {
-    /**
-     * Fetch all items
-     */
-    async getAll() {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) throw new Error(`Fetch Error: ${error.message}`);
-        return data;
-    },
-
-    /**
-     * Fetch a single item by ID
-     */
-    async find(id) {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', id)
-            .single();
-
-        if (error) throw new Error(`Item Not Found: ${error.message}`);
-        return data;
-    },
-
-    /**
-     * Create a new products item (Laravel-style 'create')
-     */
-    async create(itemData) {
-        const { data, error } = await supabase
-            .from('products')
-            .insert([itemData])
-            .select();
-
-        if (error) throw new Error(`Insert Error: ${error.message}`);
-        return data[0];
-    },
-
-    /**
-     * Update an existing item (Laravel-style 'update')
-     */
-    async update(id, updateData) {
-        const { data, error } = await supabase
-            .from('products')
-            .update(updateData)
-            .eq('id', id)
-            .select();
-
-        if (error) throw new Error(`Update Error: ${error.message}`);
-        return data[0];
-    },
-
-    /**
-     * Delete an item (Laravel-style 'delete')
-     */
-    async delete(id) {
-        const { error } = await supabase
-            .from('products')
-            .delete()
-            .eq('id', id);
-
-        if (error) throw new Error(`Delete Error: ${error.message}`);
-        return true;
-    },
-
-    /**
-     * Search items by name (Laravel-style 'where like')
-     */
-    async search(query) {
-        const { data, error } = await supabase
-            .from('products')
-            .select('*')
-            .ilike('name', `%${query}%`);
-
-        if (error) throw new Error(`Search Error: ${error.message}`);
-        return data;
+class Inventory extends Model {
+    constructor() {
+        // 'products' is the table name, 'INVENTORY' is the log tag
+        super('products', 'INVENTORY');
     }
-};
 
-module.exports = products;
+    /**
+     * ELOQUENT-STYLE INSTANCE CREATION
+     * Wraps raw database rows into an Inventory instance with Proxy support.
+     */
+    static managedInstance(data) {
+        if (!data) return null;
+        const instance = new this();
+        instance.attributes = data;
+        return new Proxy(instance, {
+            get(target, prop) {
+                return prop in target ? target[prop] : target.attributes[prop];
+            }
+        });
+    }
+
+    /**
+     * STATIC ENTRY POINT: Find by ID
+     * Usage: const product = await Inventory.find(id);
+     */
+    static async find(id) {
+        const query = `SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL`;
+        const { rows } = await pool.query(query, [id]);
+        return rows[0] ? this.managedInstance(rows[0]) : null;
+    }
+
+    /**
+     * CHECK FOR DUPLICATES
+     * Used by the controller before 'store' to prevent SKU collisions.
+     */
+    async exists(sku) {
+        const query = `SELECT id FROM ${this.table} WHERE sku = $1 LIMIT 1`;
+        const { rows } = await pool.query(query, [sku]);
+        return rows.length > 0;
+    }
+
+    /**
+     * DOMAIN LOGIC: Low Stock (Supabase Integration)
+     * Queries your Supabase connection directly for rapid filtering.
+     */
+    async findLowStock(threshold = 5) {
+        // We require it here to avoid circular dependencies if any
+        const supabase = require('../config/supabase'); 
+        
+        const { data, error } = await supabase
+            .from(this.table)
+            .select('*')
+            .lt('quantity', threshold)
+            .is('deleted_at', null);
+        
+        if (error) {
+            console.error("❌ Supabase Low Stock Error:", error.message);
+            throw error;
+        }
+        return data.map(item => Inventory.managedInstance(item));
+    }
+
+    /**
+     * RELATIONSHIP: Order History
+     * Returns all instances where this specific product was part of an order.
+     */
+    async orderHistory() {
+        const sql = `
+            SELECT oi.*, o.created_at, o.user_id 
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            WHERE oi.product_id = $1
+            ORDER BY o.created_at DESC`;
+        const { rows } = await pool.query(sql, [this.attributes.id]);
+        return rows;
+    }
+}
+
+// Export the Instance for general use, but the Class is available for static calls
+module.exports = new Inventory();

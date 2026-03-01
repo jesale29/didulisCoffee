@@ -1,43 +1,33 @@
+const passport = require('passport');
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
 
 const authController = {
-    // Show Login Page
-    showLogin(req, res) {
-        res.render('auth/login', { title: 'Login' });
+    // 1. Show Login Form
+    getLogin: (req, res) => {
+        res.render('auth/login', { 
+            title: 'Login', 
+            layout: 'layout/layout' 
+        });
     },
 
-    // Handle Login Logic
-    async login(req, res) {
-        const { email, password } = req.body;
-
-        try {
-            const user = await User.findByEmail(email);
-            if (!user) {
-                req.flash('error_msg', 'Email not registered');
-                return res.redirect('/login');
-            }
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
-                req.flash('error_msg', 'Password incorrect');
-                return res.redirect('/login');
-            }
-
-            // Create Session
-            req.session.user = { id: user.id, name: user.name, email: user.email };
-            res.redirect('/inventory');
-        } catch (err) {
-            res.status(500).send(err.message);
-        }
+    // 2. Handle Login Submission
+    postLogin: (req, res, next) => {
+        passport.authenticate('local', {
+            successRedirect: '/inventory',
+            failureRedirect: '/login',
+            failureFlash: true
+        })(req, res, next);
     },
 
-    // Logout
-    logout(req, res) {
-        req.session.destroy(() => {
+    // 3. Handle Logout
+    logout: (req, res, next) => {
+        req.logout((err) => {
+            if (err) return next(err);
+            req.flash('success_msg', 'You are logged out');
             res.redirect('/login');
         });
     }
 };
 
+// CRITICAL: Ensure this export is here!
 module.exports = authController;

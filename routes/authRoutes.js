@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 
-// Define Auth Resource Routes
-router.get('/login', authController.showLogin);
-router.post('/login', authController.login);
+// Line 6 was likely here:
+router.get('/login', authController.getLogin); 
+
+router.post('/login', authController.postLogin);
+
 router.get('/logout', authController.logout);
 
 module.exports = router;

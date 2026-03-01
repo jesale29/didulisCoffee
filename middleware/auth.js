@@ -1,9 +1,11 @@
+// middleware/auth.js
+
 module.exports = {
-    ensureAuthenticated: (req, res, next) => {
-        if (req.session.user) {
+    ensureAuthenticated: function(req, res, next) {
+        if (req.isAuthenticated()) {
             return next();
         }
-        req.flash('error_msg', 'Please log in to view this resource');
+        console.log("🚫 Unauthorized access blocked. Redirecting to login...");
         res.redirect('/login');
     }
 };

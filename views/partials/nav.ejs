@@ -1,19 +1,50 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+<nav class="navbar navbar-expand-lg border-bottom shadow-sm">
     <div class="container">
-        <a class="navbar-brand" href="/">📦 OrderFlow</a>
+        <a class="navbar-brand text-warning d-flex align-items-center fw-bold" href="/">
+            <i class="bi bi-cup-hot-fill me-2"></i> 
+            <span>Didulis Coffee</span>
+        </a>
+        
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="/inventory">Inventory</a></li>
-                <li class="nav-item"><a class="nav-link" href="/orders">Orders</a></li>
-                <li class="nav-item"><a class="nav-link" href="/admin/users">Users</a></li>
-                <li class="nav-item">
-                    <a class="btn btn-outline-danger btn-sm ms-lg-3" href="/logout">Logout</a>
-                </li>
+            <ul class="navbar-nav me-auto">
+                <% if (user) { %>
+                    <li class="nav-item">
+                        <a href="/inventory" class="nav-link">
+                            <i class="bi bi-box-seam me-1"></i> Inventory
+                        </a>
+                    </li>
+                <% } %>
             </ul>
+
+            <div class="d-flex align-items-center">
+                <button class="btn btn-link nav-link border-0 me-2" id="themeToggler" title="Toggle Theme">
+                    <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+                </button>
+
+                <% if (user) { %>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <%= user.name %>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow">
+                            <li><a class="dropdown-item" href="/settings"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="/logout">
+                                    <i class="bi bi-box-arrow-right me-2"></i>Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                <% } else { %>
+                    <a href="/login" class="btn btn-warning fw-bold px-4">Login</a>
+                <% } %>
+            </div>
         </div>
     </div>
 </nav>

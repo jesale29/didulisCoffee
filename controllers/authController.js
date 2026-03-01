@@ -1,41 +1,43 @@
-// controllers/authController.js
-const supabase = require('../config/supabaseClient');
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
-// Render the Login/Signup Page
-exports.renderAuthPage = (req, res) => {
-    res.render('auth');
+const authController = {
+    // Show Login Page
+    showLogin(req, res) {
+        res.render('auth/login', { title: 'Login' });
+    },
+
+    // Handle Login Logic
+    async login(req, res) {
+        const { email, password } = req.body;
+
+        try {
+            const user = await User.findByEmail(email);
+            if (!user) {
+                req.flash('error_msg', 'Email not registered');
+                return res.redirect('/login');
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                req.flash('error_msg', 'Password incorrect');
+                return res.redirect('/login');
+            }
+
+            // Create Session
+            req.session.user = { id: user.id, name: user.name, email: user.email };
+            res.redirect('/inventory');
+        } catch (err) {
+            res.status(500).send(err.message);
+        }
+    },
+
+    // Logout
+    logout(req, res) {
+        req.session.destroy(() => {
+            res.redirect('/login');
+        });
+    }
 };
 
-// Handle User Registration
-exports.signUp = async (req, res) => {
-    const { email, password } = req.body;
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-    });
-
-    if (error) return res.status(400).send(error.message);
-    res.send('Check your email for the confirmation link!');
-};
-
-// Handle User Login
-exports.signIn = async (req, res) => {
-    const { email, password } = req.body;
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
-
-    if (error) return res.status(400).send(error.message);
-    
-    // In a real app, you would set a cookie or session here.
-    // Supabase client stores the session automatically in memory.
-    res.redirect('/dashboard');
-};
-
-// Handle Sign Out
-exports.signOut = async (req, res) => {
-    const { error } = await supabase.auth.signOut();
-    if (error) return res.status(500).send(error.message);
-    res.redirect('/auth');
-};
+module.exports = authController;

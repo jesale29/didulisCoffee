@@ -1,14 +1,28 @@
-// server.js
-const express = require('express');
-const app = express();
-const userRoutes = require('./routes/userRoutes');
+/**
+ * Didulis Coffee - Server Entry Point
+ * Created: 2026-02-28
+ */
 
-// Middleware
-app.set('view engine', 'ejs');
-app.use(express.urlencoded({ extended: true })); // To parse form data
-
-// Routes
-app.use('/', userRoutes);
+const app = require('./app');
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+// Start the server
+const server = app.listen(PORT, () => {
+    console.log(`
+    -------------------------------------------
+    🚀 Server is running!
+    📡 URL: http://localhost:${PORT}
+    🛠️  Environment: ${process.env.NODE_ENV || 'development'}
+    -------------------------------------------
+    `);
+});
+
+// Handle graceful shutdowns (Ctrl + C)
+process.on('SIGINT', () => {
+    console.log('Shutting down server...');
+    server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+    });
+});

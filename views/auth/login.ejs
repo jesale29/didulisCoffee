@@ -1,0 +1,60 @@
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-5">
+        <div class="text-center mb-4">
+            <i class="bi bi-cup-hot-fill text-warning display-1"></i>
+            <h2 class="fw-bold mt-2">Welcome Back</h2>
+            <p class="text-secondary">Please enter your credentials to manage inventory.</p>
+        </div>
+
+        <div class="card shadow-lg border-0">
+            <div class="card-body p-5">
+                
+                <% if (error_msg && error_msg.length > 0) { %>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i><%= error_msg %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <% } %>
+
+                <% if (success_msg && success_msg.length > 0) { %>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i><%= success_msg %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <% } %>
+
+                <form action="/login" method="POST">
+                    <div class="mb-3">
+                        <label for="email" class="form-label small text-uppercase fw-bold text-secondary">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-end-0">
+                                <i class="bi bi-envelope text-secondary"></i>
+                            </span>
+                            <input type="email" name="email" id="email" class="form-control border-start-0 ps-0" placeholder="name@coffee.com" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label small text-uppercase fw-bold text-secondary">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-end-0">
+                                <i class="bi bi-lock text-secondary"></i>
+                            </span>
+                            <input type="password" name="password" id="password" class="form-control border-start-0 ps-0" placeholder="••••••••" required>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-warning btn-lg fw-bold">
+                            Login <i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="text-secondary small">Don't have an account? <a href="/register" class="text-warning text-decoration-none">Contact Admin</a></p>
+        </div>
+    </div>
+</div>

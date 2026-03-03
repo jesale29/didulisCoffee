@@ -1,20 +1,17 @@
 const express = require('express');
-const router = express.Router();
-const inventoryController = require('../controllers/inventoryController');
-const { ensureAuthenticated } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const expressRouter = express.Router();
+const InventoryController = require('../controllers/InventoryController');
 
-// Protect all routes below this line
-router.use(ensureAuthenticated);
+/**
+ * We initialize the wrapper WITHOUT a prefix here. 
+ * The logic is: if this file is required by adminRoutes, 
+ * we will manually set the 'admin.inventory' namespace.
+ */
+module.exports = (urlPrefix, namePrefix) => {
+    const Route = require('../utils/RouteWrapper')(expressRouter, urlPrefix, namePrefix);
 
-// 1. DISPLAY ROUTES (GET)
-router.get('/', inventoryController.index);
-router.get('/create', inventoryController.create);
-router.get('/:id/edit', inventoryController.edit);
+    Route.get('/', (req, res) => InventoryController.index(req, res)).name('index');
+    Route.get('/:id', (req, res) => InventoryController.show(req, res)).name('show');
 
-// 2. ACTION ROUTES (POST)
-// We removed the duplicate lines. These versions handle the images AND the data.
-router.post('/', upload.single('image'), inventoryController.store);
-router.post('/:id', upload.single('image'), inventoryController.update);
-
-module.exports = router;
+    return expressRouter;
+};

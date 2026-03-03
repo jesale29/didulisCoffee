@@ -1,0 +1,36 @@
+<footer class="footer mt-auto py-3 bg-body-tertiary border-top border-secondary border-opacity-10">
+    <div class="container-fluid px-4">
+        <div class="row align-items-center">
+            <div class="col-md-6 d-flex align-items-center">
+                <div class="status-indicator me-3 d-flex align-items-center bg-body-secondary px-2 py-1 rounded-pill border">
+                    <span class="status-dot bg-success me-2"></span>
+                    <small class="text-secondary fw-semibold text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                        PostgreSQL: Connected
+                    </small>
+                </div>
+                <small class="text-muted d-none d-lg-inline">
+                    <i class="fas fa-clock me-1"></i> System Time: <span id="footer-clock">--:--</span>
+                </small>
+            </div>
+
+            <div class="col-md-6 text-md-end text-muted">
+                <small class="fw-medium">
+                    &copy; 2026 <span class="text-body-emphasis fw-bold">Didulis Coffee</span> 
+                    <span class="mx-2 text-opacity-25">|</span> 
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">v3.1.2-stable</span>
+                </small>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // Simple real-time clock for the footer
+    function updateFooterClock() {
+        const now = new Date();
+        const clock = document.getElementById('footer-clock');
+        if(clock) clock.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    setInterval(updateFooterClock, 1000);
+    updateFooterClock();
+</script>

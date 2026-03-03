@@ -1,35 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const inventoryRoutes = require('./inventoryRoutes');
-const authRoutes = require('./authRoutes');
+
 const publicRoutes = require('./publicRoutes');
+const inventoryRoutes = require('./inventoryRoutes'); 
+const adminRoutes = require('./adminRoutes');
+const authRoutes = require('./authRoutes');
 
-
-// Auth routes
-router.use('/', authRoutes);
-
-// Home Route
-router.get('/', (req, res) => {
-    res.render('home', { 
-        title: "Home | Diduli's Coffee",
-        pageTitle: "Diduli's Coffee Inc." 
-
-    });
-});
-
-//public Routes
+// --- 1. THE LANDING PAGE ---
+// Results in: public.home, public.about
 router.use('/', publicRoutes);
 
-// Prefix all inventory routes
-router.use('/inventory', inventoryRoutes);
+// --- 2. AUTHENTICATION ---
+// Results in: auth.login, auth.register
+router.use('/', authRoutes); 
 
-// 2. The Catch-All Route (Must be last)
-router.use((req, res) => {
-    res.status(404).render('errors/404', { 
-        title: '404 - Page Not Found' 
-    });
-});
+// --- 3. PRONG 1: THE CUSTOMER STORE ---
+// Results in: store.inventory.index, store.inventory.show
+router.use('/store', inventoryRoutes('/store', 'store.inventory'));
 
-
+// --- 4. PRONG 2: THE ADMIN HUB ---
+// Results in: admin.dashboard, admin.users.index, etc.
+router.use('/admin', adminRoutes);
 
 module.exports = router;

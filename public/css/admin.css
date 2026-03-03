@@ -1,0 +1,50 @@
+/* Instead of #ffffff, use the theme-aware variable */
+.admin-header {
+    background-color: var(--bs-body-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.admin-sidebar {
+    /* If you want the sidebar to ALWAYS be dark (like Laravel) */
+    background-color: #111827; 
+}
+
+/* If you want the sidebar to follow the theme */
+[data-bs-theme="dark"] .admin-sidebar {
+    background-color: var(--bs-tertiary-bg);
+    border-right: 1px solid var(--bs-border-color);
+}
+
+/* Custom Sidebar Improvements */
+.admin-sidebar-nav {
+    background-color: #0f172a !important; /* Deep Navy Dark Mode */
+}
+
+.side-link {
+    transition: all 0.2s ease-in-out;
+    border-radius: 8px !important;
+    margin-bottom: 2px;
+}
+
+.side-link:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #fff !important;
+    transform: translateX(3px);
+}
+
+.side-link.active {
+    background-color: var(--bs-primary) !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25);
+}
+
+.hover-bg-light:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

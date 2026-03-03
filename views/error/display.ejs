@@ -1,0 +1,72 @@
+<div class="ignition-card">
+    <header class="error-header d-flex justify-content-between align-items-center">
+        <div>
+            <span class="badge-status mb-1 d-inline-block">ERROR <%= status %></span>
+            <h1 class="h5 fw-bold mb-0 text-white"><%= message %></h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="<%= backURL %>" class="btn btn-dark btn-sm border-secondary"><i class="fas fa-arrow-left me-1"></i> Back</a>
+            <button onclick="location.reload()" class="btn btn-dark btn-sm border-secondary"><i class="fas fa-sync"></i></button>
+        </div>
+    </header>
+
+    <div class="main-split">
+        <div class="stack-sidebar">
+            <div class="p-2 px-3 bg-black text-muted small fw-bold text-uppercase border-bottom border-secondary" style="letter-spacing: 1px;">Stack Trace</div>
+            <% if (stack) { %>
+                <% stack.split('\n').slice(1).filter(l => l.trim()).forEach((line, index) => { %>
+                    <div class="trace-item <%= index === 0 ? 'active' : '' %>">
+                        <div class="text-danger-emphasis small fw-bold mb-1">
+                            <%= line.includes('(') ? line.split('(')[0].replace('at ', '').trim() : 'internal' %>
+                        </div>
+                        <div class="text-muted small text-truncate" style="direction: rtl; text-align: left;">
+                            <%= line.includes('(') ? line.split('(')[1].replace(')', '') : line.trim() %>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } %>
+        </div>
+
+        <div class="code-preview">
+            <h6 class="text-secondary fw-bold text-uppercase mb-3 small">Environment Information</h6>
+            <div class="row mb-4">
+                <div class="col-sm-4">
+                    <div class="p-3 border border-secondary rounded bg-dark">
+                        <small class="text-muted d-block">Node Version</small>
+                        <span class="fw-bold"><%= process.version %></span>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="p-3 border border-secondary rounded bg-dark">
+                        <small class="text-muted d-block">Status</small>
+                        <span class="fw-bold text-danger"><%= status %></span>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="p-3 border border-secondary rounded bg-dark">
+                        <small class="text-muted d-block">Environment</small>
+                        <span class="fw-bold text-warning">Development</span>
+                    </div>
+                </div>
+            </div>
+
+            <h6 class="text-secondary fw-bold text-uppercase mb-3 small">Exception Details</h6>
+            <pre class="p-4 rounded bg-black border border-secondary"><%= stack %></pre>
+
+            <div class="mt-4 p-4 border border-success rounded bg-dark d-flex align-items-start">
+                <i class="fas fa-lightbulb text-success fs-4 me-3 mt-1"></i>
+                <div>
+                    <h6 class="text-success fw-bold">Didulis Insight</h6>
+                    <p class="mb-0 text-muted small">
+                        This error was caught by the <strong>BaseController</strong>. 
+                        If you just added a new route, verify the method exists in your controller.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-3">
+    <small class="text-muted">Didulis Coffee Framework &bull; 2026</small>
+</div>

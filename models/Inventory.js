@@ -1,53 +1,29 @@
 const Model = require('./Model');
-const pool = require('../config/db');
 
 class Inventory extends Model {
+
+    static tableName = 'products';
+
     constructor() {
-        // 'products' is the table name, 'INVENTORY' is the log tag
+        // Table: products, Resource Tag: INVENTORY
         super('products', 'INVENTORY');
     }
 
     /**
-     * ELOQUENT-STYLE INSTANCE CREATION
-     * Wraps raw database rows into an Inventory instance with Proxy support.
-     */
-    static managedInstance(data) {
-        if (!data) return null;
-        const instance = new this();
-        instance.attributes = data;
-        return new Proxy(instance, {
-            get(target, prop) {
-                return prop in target ? target[prop] : target.attributes[prop];
-            }
-        });
-    }
-
-    /**
-     * STATIC ENTRY POINT: Find by ID
-     * Usage: const product = await Inventory.find(id);
-     */
-    static async find(id) {
-        const query = `SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL`;
-        const { rows } = await pool.query(query, [id]);
-        return rows[0] ? this.managedInstance(rows[0]) : null;
-    }
-
-    /**
      * CHECK FOR DUPLICATES
-     * Used by the controller before 'store' to prevent SKU collisions.
+     * Uses the inherited shared query engine.
      */
     async exists(sku) {
-        const query = `SELECT id FROM ${this.table} WHERE sku = $1 LIMIT 1`;
-        const { rows } = await pool.query(query, [sku]);
+        const sql = `SELECT id FROM ${this.table} WHERE sku = $1 LIMIT 1`;
+        const { rows } = await this.query(sql, [sku]);
         return rows.length > 0;
     }
 
     /**
      * DOMAIN LOGIC: Low Stock (Supabase Integration)
-     * Queries your Supabase connection directly for rapid filtering.
+     * Queries Supabase for rapid filtering, returns Managed Instances.
      */
     async findLowStock(threshold = 5) {
-        // We require it here to avoid circular dependencies if any
         const supabase = require('../config/supabase'); 
         
         const { data, error } = await supabase
@@ -60,12 +36,14 @@ class Inventory extends Model {
             console.error("❌ Supabase Low Stock Error:", error.message);
             throw error;
         }
-        return data.map(item => Inventory.managedInstance(item));
+
+        // Use the parent's managedInstance to wrap the results
+        return data.map(item => this.constructor.managedInstance(item));
     }
 
     /**
      * RELATIONSHIP: Order History
-     * Returns all instances where this specific product was part of an order.
+     * Accesses attributes via the Proxy set up in the parent Model.
      */
     async orderHistory() {
         const sql = `
@@ -74,10 +52,39 @@ class Inventory extends Model {
             JOIN orders o ON oi.order_id = o.id
             WHERE oi.product_id = $1
             ORDER BY o.created_at DESC`;
-        const { rows } = await pool.query(sql, [this.attributes.id]);
+        
+        // this.id works here because of the Proxy in Model.js
+        const { rows } = await this.query(sql, [this.id]);
         return rows;
+    }
+
+    /**
+     * ATOMIC STOCK ADJUSTMENT
+     * Example of using the new runTransaction helper from Model.js
+     */
+    async adjustStock(id, amount, userId, reason = 'Inventory Update') {
+        return await this.runTransaction(async (client) => {
+            const sql = `
+                UPDATE ${this.table} 
+                SET quantity = quantity + $1, updated_at = NOW() 
+                WHERE id = $2 
+                RETURNING *`;
+            
+            const { rows } = await client.query(sql, [amount, id]);
+            const updated = rows[0];
+
+            await this.logActivity({
+                userId,
+                resourceId: id,
+                actionType: 'STOCK_ADJUST',
+                newData: { quantity: updated.quantity },
+                description: `${reason}: Adjusted by ${amount}`
+            });
+
+            return this.constructor.managedInstance(updated);
+        });
     }
 }
 
-// Export the Instance for general use, but the Class is available for static calls
-module.exports = new Inventory();
+// Export the instance for the controller to use
+module.exports = Inventory;

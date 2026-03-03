@@ -1,0 +1,65 @@
+<aside class="d-flex flex-column flex-shrink-0 p-3 text-white bg-dark shadow-lg admin-sidebar-nav" style="width: 280px; height: 100vh;">
+    <a href="/admin/dashboard" class="d-flex align-items-center mb-4 px-2 text-white text-decoration-none">
+        <div class="bg-warning rounded-3 p-2 me-2 d-flex align-items-center justify-content-center shadow">
+            <i class="fas fa-coffee text-dark fs-5"></i>
+        </div>
+        <div>
+            <span class="fs-5 fw-bold d-block lh-1">Didulis</span>
+            <small class="text-secondary text-uppercase fw-bold" style="font-size: 0.6rem; letter-spacing: 1px;">Admin Panel</small>
+        </div>
+    </a>
+
+    <div class="flex-column mb-auto overflow-auto no-scrollbar">
+        <small class="text-secondary text-uppercase fw-bold px-3 mb-2 d-block" style="font-size: 0.65rem; letter-spacing: 1px;">Main Management</small>
+        <ul class="nav nav-pills flex-column mb-4">
+            <li class="nav-item">
+                <a href="/admin/dashboard" class="nav-link py-2 px-3 <%= activePage === 'dashboard' ? 'active' : 'text-secondary-emphasis text-white-50' %> side-link">
+                    <i class="fas fa-chart-pie me-2 opacity-75"></i> Dashboard
+                </a>
+            </li>
+            <li>
+                <a href="/admin/inventory" class="nav-link py-2 px-3 <%= activePage === 'inventory' ? 'active' : 'text-secondary-emphasis text-white-50' %> side-link">
+                    <i class="fas fa-boxes me-2 opacity-75"></i> Inventory
+                </a>
+            </li>
+            <li>
+                <a href="/admin/orders" class="nav-link py-2 px-3 <%= activePage === 'orders' ? 'active' : 'text-secondary-emphasis text-white-50' %> side-link">
+                    <i class="fas fa-receipt me-2 opacity-75"></i> Orders
+                </a>
+            </li>
+        </ul>
+
+        <small class="text-secondary text-uppercase fw-bold px-3 mb-2 d-block" style="font-size: 0.65rem; letter-spacing: 1px;">Internal</small>
+        <ul class="nav nav-pills flex-column">
+            <li>
+                <a href="/admin/users" class="nav-link py-2 px-3 <%= activePage === 'users' ? 'active' : 'text-secondary-emphasis text-white-50' %> side-link">
+                    <i class="fas fa-user-shield me-2 opacity-75"></i> Staff & Permissions
+                </a>
+            </li>
+            <li>
+                <a href="/admin/settings" class="nav-link py-2 px-3 <%= activePage === 'settings' ? 'active' : 'text-secondary-emphasis text-white-50' %> side-link">
+                    <i class="fas fa-cog me-2 opacity-75"></i> Settings
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="pt-3 mt-3 border-top border-secondary border-opacity-25">
+        <div class="dropdown">
+            <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle p-2 rounded hover-bg-light" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style="width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.1);">
+                    <small class="fw-bold"><%= user.email.charAt(0).toUpperCase() %></small>
+                </div>
+                <div class="overflow-hidden">
+                    <p class="mb-0 small fw-bold text-truncate" style="max-width: 150px;"><%= user.email.split('@')[0] %></p>
+                    <p class="mb-0 x-small text-secondary fw-bold" style="font-size: 0.6rem;"><%= user.role || 'Admin' %></p>
+                </div>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-dark shadow-lg border-secondary" aria-labelledby="dropdownUser1">
+                <li><a class="dropdown-item py-2" href="/admin/profile"><i class="fas fa-user-circle me-2 opacity-50"></i> My Profile</a></li>
+                <li><hr class="dropdown-divider border-secondary opacity-25"></li>
+                <li><a class="dropdown-item py-2 text-danger" href=" <%= route('auth.logout') %> "><i class="fas fa-sign-out-alt me-2"></i> Sign out</a></li>
+            </ul>
+        </div>
+    </div>
+</aside>

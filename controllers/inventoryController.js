@@ -1,7 +1,8 @@
 const Inventory = require('../models/Inventory');
 const fs = require('fs');
+const BaseController = require('./BaseController');
 
-class InventoryController {
+class InventoryController extends BaseController {
     
     /**
      * GET /inventory

@@ -1,33 +1,61 @@
-const passport = require('passport');
-const User = require('../models/User');
+const BaseController = require('./BaseController');
 
-const authController = {
-    // 1. Show Login Form
-    getLogin: (req, res) => {
-        res.render('auth/login', { 
-            title: 'Login', 
-            layout: 'layout/layout' 
+
+class AuthController extends BaseController {
+    constructor() {
+        super();
+    }
+
+    /**
+     * GET /login
+     * Display the login form
+     */
+    getLogin = (req, res) => {
+        // If user is already authenticated, don't show the login page
+        if (req.isAuthenticated()) {
+            const isAdmin = req.user.role === 'admin' || req.user.role === 'staff';
+            return res.redirect(isAdmin ? this.route('admin.dashboard') : this.route('public.home'));
+        }
+
+        // Render the login view
+        res.render('auth/login', {
+            title: 'Login | Didulis Coffee',
+            // Pass any flash messages if your setup requires manual passing
+            error: req.flash('error')
         });
-    },
+    };
 
-    // 2. Handle Login Submission
-    postLogin: (req, res, next) => {
-        passport.authenticate('local', {
-            successRedirect: '/inventory',
-            failureRedirect: '/login',
-            failureFlash: true
+    // Convert to arrow function to keep 'this'
+    postLogin = (req, res, next) => {
+        // Use arrow function in the callback too!
+        this.passport.authenticate('local', (err, user, info) => {
+            if (err) return next(err);
+            
+            if (!user) {
+                // Now 'this' correctly refers to the controller
+                return res.redirect(this.route('auth.login'));
+            }
+
+            req.logIn(user, (err) => {
+                if (err) return next(err);
+
+                const isAdmin = user.role === 'admin' || user.role === 'staff';
+                
+                const destination = isAdmin 
+                    ? this.route('admin.dashboard') 
+                    : this.route('public.home');
+
+                return res.redirect(destination);
+            });
         })(req, res, next);
-    },
+    }
 
-    // 3. Handle Logout
-    logout: (req, res, next) => {
+    logout = (req, res) => {
         req.logout((err) => {
             if (err) return next(err);
-            req.flash('success_msg', 'You are logged out');
-            res.redirect('/login');
+            res.redirect(this.route('auth.login'));
         });
     }
-};
+}
 
-// CRITICAL: Ensure this export is here!
-module.exports = authController;
+module.exports = new AuthController();

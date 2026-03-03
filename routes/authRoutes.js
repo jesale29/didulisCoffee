@@ -1,12 +1,15 @@
 const express = require('express');
-const router = express.Router();
-const authController = require('../controllers/authController');
+const expressRouter = express.Router();
+const AuthController = require('../controllers/AuthController');
 
-// Line 6 was likely here:
-router.get('/login', authController.getLogin); 
+// Ensure you are passing 'auth' as the third argument (namePrefix)
+const Route = require('../utils/RouteWrapper')(expressRouter, '', 'auth');
 
-router.post('/login', authController.postLogin);
+/**
+ * Results in 'auth.login' and 'auth.logout'
+ */
+Route.get('/login', (req, res) => AuthController.getLogin(req, res)).name('login');
+Route.post('/login', (req, res) => AuthController.postLogin(req, res)).name('login.post');
+Route.get('/logout', (req, res) => AuthController.logout(req, res)).name('logout');
 
-router.get('/logout', authController.logout);
-
-module.exports = router;
+module.exports = expressRouter;

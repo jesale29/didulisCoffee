@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> | Didulis Admin</title>
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('didulis-theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="/css/admin.css">
+
+    <%- typeof pageStyles !== 'undefined' ? pageStyles : '' %>
+
+    <style>
+        /* Layout Structure */
+        body { overflow: hidden; height: 100vh; display: flex; }
+        .admin-wrapper { display: flex; width: 100%; height: 100vh; }
+        
+        /* Sidebar Styling */
+        #sidebar-container { min-width: 280px; max-width: 280px; transition: all 0.3s; }
+        
+        /* Main Content Area */
+        .main-content { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            background-color: var(--bs-tertiary-bg); 
+        }
+        
+        /* Smooth Scrolling */
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .main-content::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="admin-wrapper">
+        <div id="sidebar-container" class="bg-dark text-white border-end border-secondary border-opacity-25">
+            <%- include('../partials/admin/sidebar') %>
+        </div>
+
+        <div class="main-content">
+            <%- include('../partials/admin/header') %>
+
+            <div class="container-fluid py-4 px-4 flex-grow-1">
+                <%- body %>
+            </div>
+
+            <%- include('../partials/admin/footer') %>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/admin-main.js"></script>
+
+    <%- typeof pageScripts !== 'undefined' ? pageScripts : '' %>
+    
+    <% if (process.env.NODE_ENV === 'development') { %>
+        <script id="__bs_script__">//<![CDATA[
+            (function() {
+                // BrowserSync will inject its script here if you are proxying through port 4000
+            })();
+        //]]></script>
+    <% } %>
+</body>
+</html>

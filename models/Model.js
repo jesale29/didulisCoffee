@@ -2,216 +2,171 @@ const pool = require('../config/db');
 
 /**
  * Base Model Class
- * Handles database interaction for all child models (Order, Inventory, User).
+ * Centralizes database logic, relationships, and Proxy-based instance management.
  */
 class Model {
-    /**
-     * @param {string} tableName - The name of the table in Postgres.
-     * @param {string} resourceType - The tag for activity logging (e.g., 'ORDER', 'INVENTORY').
-     */
+    static tableName = ''; // Overridden by child classes
+    static db = pool;      // Static reference to the PG pool
+
     constructor(tableName, resourceType = 'GENERAL') {
         this.table = tableName;
         this.resourceType = resourceType;
         this.attributes = {};
     }
 
+    /**
+     * CENTRAL QUERY HANDLER
+     * The single point of entry for all database execution.
+     */
+    static async query(sql, params = []) {
+        try {
+            return await this.db.query(sql, params);
+        } catch (err) {
+            console.error(`\x1b[41m DB_ERROR [${this.tableName || 'Model'}] \x1b[0m`, err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Instance-level alias for the central query handler
+     */
+    async query(sql, params = []) {
+        return await this.constructor.query(sql, params);
+    }
+
+    /**
+     * ELOQUENT PROXY WRAPPER
+     * Binds methods to the instance and allows direct access to attributes.
+     */
     static managedInstance(data) {
         if (!data) return null;
         const instance = new this();
-        instance.attributes = data;
-        // Proxy attributes so you can do order.id instead of order.attributes.id
+        
+        // Use spread operator to avoid DEP0060
+        instance.attributes = { ...data }; 
+        
         return new Proxy(instance, {
             get(target, prop) {
-                return prop in target ? target[prop] : target.attributes[prop];
+                // 1. Check if the property is a function (e.g., belongsTo, userRole)
+                const value = Reflect.get(target, prop);
+                if (typeof value === 'function') {
+                    // We bind the function to the instance so 'this' works correctly
+                    return value.bind(target);
+                }
+                
+                // 2. If it's not on the target, check attributes
+                if (!(prop in target) && prop in target.attributes) {
+                    return target.attributes[prop];
+                }
+                
+                return value;
+            },
+            set(target, prop, value) {
+                // Determine if we are setting a class property or a data attribute
+                if (prop in target) {
+                    target[prop] = value;
+                } else {
+                    target.attributes[prop] = value;
+                }
+                return true;
             }
         });
     }
 
-    /**
-     * GET ALL: Fetches only non-archived records.
-     */
-    async all() {
-        const query = `
-            SELECT * FROM ${this.table} 
-            WHERE deleted_at IS NULL 
-            ORDER BY created_at DESC`;
-        const { rows } = await pool.query(query);
-        return rows;
+    // --- STATIC READ METHODS ---
+
+    static async all() {
+        const sql = `SELECT * FROM ${this.tableName} WHERE deleted_at IS NULL ORDER BY created_at DESC`;
+        const { rows } = await this.query(sql);
+        return rows.map(row => this.managedInstance(row));
     }
 
-    /**
-     * FIND BY ID: Fetches a single record if it hasn't been soft-deleted.
-     */
-    async find(id) {
-        const query = `
-            SELECT * FROM ${this.table} 
-            WHERE id = $1 AND deleted_at IS NULL`;
-        const { rows } = await pool.query(query, [id]);
-        return rows[0] || null;
+    static async find(id) {
+        if (!id) return null;
+        const sql = `SELECT * FROM ${this.tableName} WHERE id = $1 AND deleted_at IS NULL`;
+        const { rows } = await this.query(sql, [id]);
+        return rows[0] ? this.managedInstance(rows[0]) : null;
     }
 
-    /**
-     * CREATE: Dynamic column insertion.
-     */
-    async create(payload) {
-        const keys = Object.keys(payload);
-        const values = Object.values(payload);
-        
-        const columns = keys.join(', ');
-        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    static async where(column, value) {
+        const sql = `SELECT * FROM ${this.tableName} WHERE ${column} = $1 AND deleted_at IS NULL ORDER BY created_at DESC`;
+        const { rows } = await this.query(sql, [value]);
+        return rows.map(row => this.managedInstance(row));
+    }
 
-        const query = `
-            INSERT INTO ${this.table} (${columns}) 
-            VALUES (${placeholders}) 
-            RETURNING *`;
+    static async count() {
+        const sql = `SELECT COUNT(*) as total FROM ${this.tableName} WHERE deleted_at IS NULL`;
+        const { rows } = await this.query(sql);
+        return parseInt(rows[0].total, 10);
+    }
 
-        try {
-            const { rows } = await pool.query(query, values);
-            return rows[0];
-        } catch (err) {
-            console.error(`❌ DB Create Error [${this.table}]:`, err.message);
-            throw err;
+    // --- INSTANCE PERSISTENCE METHODS ---
+
+    async save() {
+        // Exclude internal timestamps and ID from the automatic mapping
+        const fields = Object.keys(this.attributes).filter(key => !['id', 'created_at', 'updated_at', 'deleted_at'].includes(key));
+        const values = fields.map(field => this.attributes[field]);
+
+        if (this.attributes.id) {
+            // UPDATE logic
+            const setClause = fields.map((field, i) => `${field} = $${i + 1}`).join(', ');
+            const sql = `UPDATE ${this.table} SET ${setClause}, updated_at = NOW() WHERE id = $${fields.length + 1} RETURNING *`;
+            const { rows } = await this.query(sql, [...values, this.attributes.id]);
+            this.attributes = { ...rows[0] };
+        } else {
+            // INSERT logic
+            const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
+            const sql = `INSERT INTO ${this.table} (${fields.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+            const { rows } = await this.query(sql, values);
+            this.attributes = { ...rows[0] };
         }
-    }
-    
-    /**
-     * UPDATE: Dynamic column updates with automatic timestamping.
-     */
-    async update(id, payload) {
-        const keys = Object.keys(payload);
-        const values = Object.values(payload);
-
-        if (keys.length === 0) return null;
-
-        const setClause = keys.map((key, i) => `${key} = $${i + 1}`).join(', ');
-
-        const query = `
-            UPDATE ${this.table} 
-            SET ${setClause}, updated_at = NOW() 
-            WHERE id = $${keys.length + 1} AND deleted_at IS NULL 
-            RETURNING *`;
-
-        try {
-            const { rows } = await pool.query(query, [...values, id]);
-            return rows[0];
-        } catch (err) {
-            console.error(`❌ DB Update Error [${this.table}]:`, err.message);
-            throw err;
-        }
+        return this;
     }
 
-    /**
-     * HARD DELETE: Physical removal (Use with caution).
-     */
-    async delete(id) {
-        const query = `DELETE FROM ${this.table} WHERE id = $1`;
-        await pool.query(query, [id]);
+    async delete() {
+        if (!this.attributes.id) return false;
+        const sql = `UPDATE ${this.table} SET deleted_at = NOW() WHERE id = $1`;
+        await this.query(sql, [this.attributes.id]);
         return true;
     }
 
-    /**
-     * GLOBAL ACTIVITY TRACKER
-     * Records changes into the activity_logs table for audit purposes.
-     */
-    async logActivity({ userId, resourceId, actionType, oldData = {}, newData = {}, description = '' }) {
-        const query = `
-            INSERT INTO activity_logs 
-            (user_id, resource_type, resource_id, action_type, old_data, new_data, description)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `;
-        try {
-            await pool.query(query, [
-                userId, 
-                this.resourceType, 
-                resourceId, 
-                actionType, 
-                JSON.stringify(oldData), 
-                JSON.stringify(newData), 
-                description
-            ]);
-        } catch (err) {
-            console.error(`❌ Global Logger Error [${this.resourceType}]:`, err.message);
-            // Log failure doesn't throw, allowing main action to finish
-        }
-    }
+    // --- FULL ELOQUENT RELATIONSHIPS ---
 
-    /**
-     * ARCHIVE RESOURCE (Transaction-Safe Soft Delete)
-     * Handles the 'deleted_at' flag and logs the event in one go.
-     */
-    async archive(id, userId, customNotes = '') {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-
-            // 1. Fetch current state before "deletion"
-            const oldData = await this.find(id);
-            if (!oldData) throw new Error(`${this.resourceType} not found.`);
-
-            // 2. Mark as deleted
-            const { rows } = await client.query(
-                `UPDATE ${this.table} SET deleted_at = NOW() WHERE id = $1 RETURNING *`,
-                [id]
-            );
-            const newData = rows[0];
-
-            // 3. Trigger Global Log
-            await this.logActivity({
-                userId,
-                resourceId: id,
-                actionType: 'ARCHIVE',
-                oldData,
-                newData,
-                description: customNotes || `${this.resourceType} was archived by user.`
-            });
-
-            await client.query('COMMIT');
-            return true;
-        } catch (err) {
-            await client.query('ROLLBACK');
-            console.error(`❌ Archive Error [${this.table}]:`, err.message);
-            throw err;
-        } finally {
-            client.release();
-        }
-    }
-
-    /**
-     * RAW QUERY WRAPPER
-     * Use this in child models for complex JOINs.
-     */
-    async query(text, params) {
-        return await pool.query(text, params);
-    }
-
-    /**
-     * Eloquent: belongsTo
-     */
     async belongsTo(RelatedModel, foreignKey) {
         const id = this.attributes[foreignKey];
         if (!id) return null;
         return await RelatedModel.find(id);
     }
 
-    /**
-     * Eloquent: hasMany
-     */
-    async hasMany(RelatedModel, foreignKey) {
-        const query = `SELECT * FROM ${RelatedModel.table} WHERE ${foreignKey} = $1 AND deleted_at IS NULL`;
-        const { rows } = await pool.query(query, [this.attributes.id]);
-        return rows.map(row => RelatedModel.constructor.managedInstance(row));
+    async hasOne(RelatedModel, foreignKey) {
+        const sql = `SELECT * FROM ${RelatedModel.tableName} WHERE ${foreignKey} = $1 AND deleted_at IS NULL LIMIT 1`;
+        const { rows } = await this.query(sql, [this.attributes.id]);
+        return rows[0] ? RelatedModel.managedInstance(rows[0]) : null;
     }
 
-    /**
-     * Static Find (Entry Point)
-     */
-    static async find(id) {
-        const tableName = new this().table;
-        const query = `SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NULL`;
-        const { rows } = await pool.query(query, [id]);
-        return rows[0] ? this.managedInstance(rows[0]) : null;
+    async hasMany(RelatedModel, foreignKey) {
+        return await RelatedModel.where(foreignKey, this.attributes.id);
     }
-    
+
+    async belongsToMany(RelatedModel, pivotTable, foreignKey, relatedKey) {
+        const sql = `
+            SELECT r.* FROM ${RelatedModel.tableName} r
+            JOIN ${pivotTable} p ON r.id = p.${relatedKey}
+            WHERE p.${foreignKey} = $1 AND r.deleted_at IS NULL
+        `;
+        const { rows } = await this.query(sql, [this.attributes.id]);
+        return rows.map(row => RelatedModel.managedInstance(row));
+    }
+
+    async hasManyThrough(TargetModel, IntermediateModel, firstKey, secondKey) {
+        const sql = `
+            SELECT t.* FROM ${TargetModel.tableName} t
+            JOIN ${IntermediateModel.tableName} i ON t.${secondKey} = i.id
+            WHERE i.${firstKey} = $1 AND t.deleted_at IS NULL
+        `;
+        const { rows } = await this.query(sql, [this.attributes.id]);
+        return rows.map(row => TargetModel.managedInstance(row));
+    }
 }
 
 module.exports = Model;

@@ -1,102 +1,119 @@
 const Model = require('./Model');
-const pool = require('../config/db');
+const User = require('./User'); 
+const OrderItem = require('./OrderItem');
 
 class Order extends Model {
+    static tableName = 'orders';
+
     constructor() {
-        super('orders', 'ORDER');
+        // Passing 'orders' to parent and 'ORDER' as the resource type for logging
+        super(Order.tableName, 'ORDER');
     }
 
     /**
      * CUSTOMER LOGIC: Automated Checkout
-     * Includes 5-minute stock reservation and 'Reserved' status.
+     * Handles order creation, item insertion, and stock reduction atomically.
      */
     async customerCreate(userId, cartItems, totalAmount) {
-        const client = await pool.connect();
+        // Assuming runTransaction exists on your parent Model to provide a client
+        return await this.db.query('BEGIN'); 
         try {
-            await client.query('BEGIN');
-            const statusRes = await client.query("SELECT id FROM order_status WHERE name = 'Reserved'");
+            // 1. Get Status ID for 'Reserved'
+            const statusRes = await this.query("SELECT id FROM order_status WHERE name = 'Reserved'");
             const reservedId = statusRes.rows[0].id;
 
-            const order = await this.create({ 
+            // 2. Create the Order
+            // We use 'this.attributes' to prepare the data for the Proxy
+            this.attributes = { 
                 user_id: userId, 
                 current_status_id: reservedId, 
                 total_amount: totalAmount 
-            });
+            };
+            
+            // Save the order to get the ID and timestamps
+            await this.save(); 
 
+            // 3. Process Items and Inventory
             for (const item of cartItems) {
-                await client.query(`INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase) VALUES ($1, $2, $3, $4)`, 
-                    [order.id, item.id, item.quantity, item.price]);
+                await this.query(
+                    `INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase) 
+                     VALUES ($1, $2, $3, $4)`, 
+                    [this.id, item.id, item.quantity, item.price]
+                );
                 
-                // Immediate Stock Reduction for Reservation
-                await client.query(`UPDATE inventory SET stock = stock - $1 WHERE id = $2`, [item.quantity, item.id]);
+                // Atomic Stock Reduction
+                await this.query(
+                    `UPDATE products SET stock = stock - $1 WHERE id = $2`, 
+                    [item.quantity, item.id]
+                );
             }
 
-            await this.logActivity({
-                userId,
-                resourceId: order.id,
-                actionType: 'CREATE_CUSTOMER',
-                newData: order,
-                description: `Customer placed order ${this.format(order).orderNumber}`
-            });
+            // 4. Log Activity (assuming logActivity is in parent Model)
+            if (this.logActivity) {
+                await this.logActivity({
+                    userId,
+                    resourceId: this.id,
+                    actionType: 'CREATE_CUSTOMER',
+                    newData: this.attributes,
+                    description: `Customer placed order ${this.format().orderNumber}`
+                });
+            }
 
-            await client.query('COMMIT');
-            return this.format(order);
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally { client.release(); }
+            await this.db.query('COMMIT');
+            return this.format();
+        } catch (error) {
+            await this.db.query('ROLLBACK');
+            throw error;
+        }
     }
 
     /**
-     * INTERNAL LOGIC: Admin Manual Order
-     * Bypasses automated reservation logic for manual entry.
+     * Utility: Format Order Number
+     * Works directly on 'this' because it's called on a managed instance.
      */
-    async internalCreate(adminId, customerId, items, totalAmount, notes) {
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            const statusRes = await client.query("SELECT id FROM order_status WHERE name = 'Confirmed'");
-            const confirmedId = statusRes.rows[0].id;
-
-            const order = await this.create({
-                user_id: customerId,
-                current_status_id: confirmedId,
-                total_amount: totalAmount
-            });
-
-            // Log that this was an INTERNAL creation for audit
-            await this.logActivity({
-                userId: adminId,
-                resourceId: order.id,
-                actionType: 'CREATE_INTERNAL',
-                newData: order,
-                description: `Internal Admin Order created: ${notes}`
-            });
-
-            await client.query('COMMIT');
-            return this.format(order);
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally { client.release(); }
+    format() {
+        const id = this.id;
+        const created_at = this.created_at || new Date();
+        
+        // Generate a readable Order Number: #DC-2026-ABC12345
+        const shortUuid = id ? id.toString().substring(0, 8).toUpperCase() : 'TEMP';
+        const year = new Date(created_at).getFullYear();
+        
+        // Return a copy with the formatted number
+        return { 
+            ...this.attributes, 
+            orderNumber: `#DC-${year}-${shortUuid}` 
+        };
     }
 
-    format(order) {
-        if (!order) return null;
-        const shortUuid = order.id.toString().substring(0, 8).toUpperCase();
-        return { ...order, orderNumber: `#DC-${new Date(order.created_at).getFullYear()}-${shortUuid}` };
-    }
+    // --- Relationships ---
 
-    // $this->belongsTo(User::class)
     async user() {
         return await this.belongsTo(User, 'user_id');
     }
 
-    // $this->hasMany(OrderItem::class)
-    async items() {
+    async orderItems() {
+        // Renamed to avoid confusion with the model name 'OrderItem'
         return await this.hasMany(OrderItem, 'order_id');
     }
 
+    // --- Dashboard Helpers ---
+
+    /**
+     * Fetch orders specifically for the Admin Dashboard
+     */
+    static async getRecentWithUsers(limit = 5) {
+        const sql = `
+            SELECT o.*, u.email as user_email 
+            FROM ${this.tableName} o
+            LEFT JOIN users u ON o.user_id = u.id
+            WHERE o.deleted_at IS NULL
+            ORDER BY o.created_at DESC
+            LIMIT $1
+        `;
+        const { rows } = await this.query(sql, [limit]);
+        return rows.map(row => this.managedInstance(row));
+    }
 }
 
-module.exports = new Order();
+module.exports = Order;

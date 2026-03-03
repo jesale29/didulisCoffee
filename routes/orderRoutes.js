@@ -1,27 +1,41 @@
 const express = require('express');
-const router = express.Router();
-const { ensureAuthenticated } = require('../middleware/auth'); // Assuming you have this
+const expressRouter = express.Router();
+const { ensureAuthenticated } = require('../middleware/auth');
 const OrderController = require('../controllers/OrderController');
 
-// All public routes require a logged-in user
-router.use(ensureAuthenticated);
+/**
+ * INITIALIZE WRAPPER
+ * This adds the .name() functionality to your routes.
+ */
+const Route = require('../utils/RouteWrapper')(expressRouter, '');
+
+// All order routes require a logged-in user
+expressRouter.use(ensureAuthenticated);
 
 /**
- * CUSTOMER FACING ROUTES
+ * CUSTOMER & ADMIN SHARED ROUTES
+ * The controller logic will handle the view difference via req.originalUrl
  */
-// GET /orders - List all orders for the current user
-router.get('/', (req, res) => OrderController.index(req, res));
 
-// GET /orders/create - Show the final checkout/confirmation page
-router.get('/create', (req, res) => OrderController.create(req, res));
+// GET /orders - List all orders
+Route.get('/', (req, res) => OrderController.index(req, res))
+     .name('orders.index');
 
-// POST /orders - Process the checkout (Customer creation logic)
-router.post('/', (req, res) => OrderController.store(req, res));
+// GET /orders/create - Show the checkout page
+Route.get('/create', (req, res) => OrderController.create(req, res))
+     .name('orders.create');
+
+// POST /orders - Process the checkout
+Route.post('/', (req, res) => OrderController.store(req, res))
+     .name('orders.store');
 
 // GET /orders/:id - View specific order details
-router.get('/:id', (req, res) => OrderController.show(req, res));
+Route.get('/:id', (req, res) => OrderController.show(req, res))
+     .name('orders.show');
 
-// DELETE /orders/:id - Cancel/Archive an order (Soft delete)
-router.delete('/:id', (req, res) => OrderController.destroy(req, res));
+// DELETE /orders/:id - Cancel/Archive an order
+// Note: Some browsers/forms struggle with DELETE, so we use POST for archiving usually
+Route.post('/:id/cancel', (req, res) => OrderController.destroy(req, res))
+     .name('orders.destroy');
 
-module.exports = router;
+module.exports = expressRouter;
